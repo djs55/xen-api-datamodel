@@ -1,0 +1,27 @@
+OASISFormat: 0.2
+Name:        xen-api-datamodel
+Version:     0.1
+Synopsis:    XenAPI definitions
+Authors:     see CREDITS.md
+License:     LGPL-2.1 with OCaml linking exception
+Plugins:     META (0.2)
+BuildTools:  ocamlbuild
+
+Flag tests
+  Description:        Build and run tests
+  Default:            true
+
+Library xen_api_datamodel
+  CompiledObject:     best
+  Path:               lib
+  Findlibname:        xen-api-datamodel
+  Modules:            Datamodel,Dm_api,Datamodel_utils,Datamodel_types,Date
+  BuildDepends:       rpc
+
+Executable docgen
+  CompiledObject:     best
+  Path:               docgen
+  MainIs:             datamodel_main.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       rpc, xen-api-datamodel

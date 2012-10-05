@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: 96ab7eb470ba902c8082e0eedc786b78)
+version = "0.1"
+description = "XenAPI definitions"
+requires = "rpc"
+archive(byte) = "xen_api_datamodel.cma"
+archive(byte, plugin) = "xen_api_datamodel.cma"
+archive(native) = "xen_api_datamodel.cmxa"
+archive(native, plugin) = "xen_api_datamodel.cmxs"
+exists_if = "xen_api_datamodel.cma"
+# OASIS_STOP
+

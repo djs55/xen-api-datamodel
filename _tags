@@ -1,0 +1,28 @@
+# OASIS_START
+# DO NOT EDIT (digest: b470e334f22bb8a0294dfbd052a277aa)
+# Ignore VCS directories, you can use the same kind of rule outside 
+# OASIS_START/STOP if you want to exclude directories that contains 
+# useless stuff for the build process
+<**/.svn>: -traverse
+<**/.svn>: not_hygienic
+".bzr": -traverse
+".bzr": not_hygienic
+".hg": -traverse
+".hg": not_hygienic
+".git": -traverse
+".git": not_hygienic
+"_darcs": -traverse
+"_darcs": not_hygienic
+# Library xen_api_datamodel
+"lib/xen_api_datamodel.cmxs": use_xen_api_datamodel
+<lib/*.ml{,i}>: pkg_rpc
+# Executable docgen
+<docgen/datamodel_main.{native,byte}>: use_xen_api_datamodel
+<docgen/datamodel_main.{native,byte}>: pkg_rpc
+<docgen/*.ml{,i}>: use_xen_api_datamodel
+<docgen/*.ml{,i}>: pkg_rpc
+<docgen/datamodel_main.{native,byte}>: custom
+# OASIS_STOP
+<lib/*.ml>: syntax_camlp4o
+<lib/*.ml>: pkg_rpc.syntax
+ 
