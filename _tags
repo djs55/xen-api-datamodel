@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 853cc9b530c148bedac89f7d0d94b1a9)
+# DO NOT EDIT (digest: 4e41eda6467d88025fe4fa4beeb1278b)
 # Ignore VCS directories, you can use the same kind of rule outside 
 # OASIS_START/STOP if you want to exclude directories that contains 
 # useless stuff for the build process
@@ -20,15 +20,18 @@
 <docgen/datamodel_main.{native,byte}>: use_xen_api_datamodel
 <docgen/datamodel_main.{native,byte}>: pkg_rpc
 <docgen/datamodel_main.{native,byte}>: pkg_unix
-<docgen/datamodel_main.{native,byte}>: custom
-# Executable ocaml
-<docgen/gen_api_main.{native,byte}>: use_xen_api_datamodel
-<docgen/gen_api_main.{native,byte}>: pkg_rpc
-<docgen/gen_api_main.{native,byte}>: pkg_unix
 <docgen/*.ml{,i}>: use_xen_api_datamodel
 <docgen/*.ml{,i}>: pkg_rpc
 <docgen/*.ml{,i}>: pkg_unix
-<docgen/gen_api_main.{native,byte}>: custom
+<docgen/datamodel_main.{native,byte}>: custom
+# Executable ocaml
+<ocaml/gen_api_main.{native,byte}>: use_xen_api_datamodel
+<ocaml/gen_api_main.{native,byte}>: pkg_rpc
+<ocaml/gen_api_main.{native,byte}>: pkg_unix
+<ocaml/*.ml{,i}>: use_xen_api_datamodel
+<ocaml/*.ml{,i}>: pkg_rpc
+<ocaml/*.ml{,i}>: pkg_unix
+<ocaml/gen_api_main.{native,byte}>: custom
 # OASIS_STOP
 <lib/*.ml>: syntax_camlp4o
 <lib/*.ml>: pkg_rpc.syntax

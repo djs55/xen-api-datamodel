@@ -47,9 +47,6 @@ let filter_api () =
   | Some x ->                Printf.eprintf "Unknown filter mode: %s\n" x;
       api_used
 
-let set_gendebug () =
-  Gen_server.enable_debugging := true
-
 let mode = ref None
 
 let _ =
@@ -68,9 +65,6 @@ let _ =
       Arg.Bool (fun x -> filterinternal := x),
       "Filter internal fields and messages";
       
-      "-gendebug",
-      Arg.Unit (fun _ -> set_gendebug ()),
-      "Add debugging code to generated output";
     ] (fun x -> Printf.eprintf "Ignoring argument: %s\n" x)
     "Generate ocaml code from the datamodel. See -help";
 
@@ -81,12 +75,4 @@ let _ =
       Gen_api.gen_client api
   | Some "api" ->
       Gen_api.gen_client_types api
-  | Some "server" ->
-      Gen_api.gen_server api
-  | Some "db" ->
-      Gen_api.gen_db_actions api
-  | Some "actions" ->
-      Gen_api.gen_custom_actions api
-  | Some "rbac" ->
-      Gen_api.gen_rbac api
   | Some x -> Printf.eprintf "Didn't recognise mode: %s\n" x

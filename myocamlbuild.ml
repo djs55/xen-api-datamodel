@@ -1,5 +1,5 @@
 (* OASIS_START *)
-(* DO NOT EDIT (digest: 7302fb5871a53b23f8a08183a448b0ff) *)
+(* DO NOT EDIT (digest: 072a564e929bcf127d3d02cf2efe2ec9) *)
 module OASISGettext = struct
 # 21 "/home/djs/.opam/system/build/oasis.0.3.0/src/oasis/OASISGettext.ml"
 
@@ -480,7 +480,7 @@ let package_default =
      MyOCamlbuildBase.lib_ocaml = [("xen_api_datamodel", ["lib"])];
      lib_c = [];
      flags = [];
-     includes = [("docgen", ["lib"])];
+     includes = [("ocaml", ["lib"]); ("docgen", ["lib"])];
      }
   ;;
 

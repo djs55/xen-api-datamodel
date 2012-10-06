@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 3cd711b2c0b530bd8ca6d62766e7a1c0)
+# DO NOT EDIT (digest: 1de51aa212ec10ca716fcb6da9da9474)
 Datamodel
 Dm_api
 Datamodel_utils
@@ -8,4 +8,5 @@ Date
 Api_errors
 Api_messages
 Constants
+Datamodel_values
 # OASIS_STOP

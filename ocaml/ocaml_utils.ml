@@ -11,10 +11,19 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Stringext
 open Datamodel_types
 
 let keywords = [ "mod" ]
+
+let fold_right f string accu =
+        let accu = ref accu in
+        for i = String.length string - 1 downto 0 do
+                accu := f string.[i] !accu
+        done;
+        !accu
+
+let explode string =
+        fold_right (fun h t -> h :: t) string []
 
 (** Escape enum names to make them readable polymorphic variant type
     constructors. *)
@@ -23,7 +32,7 @@ let constructor_of string =
       'A'..'Z' | 'a'..'z' | '0'..'9' | '_' as c -> String.make 1 c
     | _ -> "" in
   let string = if List.mem string keywords then "_" ^ string else string in
-  let list = match String.explode string with
+  let list = match explode string with
       '0'..'9' :: _ as list -> "`_" :: List.map remove_non_alphanum list    
     | list -> "`" :: List.map remove_non_alphanum list in
   String.concat "" list
