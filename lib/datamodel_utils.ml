@@ -15,8 +15,6 @@ open Datamodel
 open Datamodel_types
 open Dm_api
 open Printf
-open Listext
-open Stringext
 
 (** Utility functions relating to the types in the datamodel *)
 module Types = struct
@@ -71,8 +69,14 @@ module Types = struct
     let selves = List.map (fun obj -> Ref(obj.name)) system in
     let set_self = List.map (fun t -> Set(t)) selves in
 
-    let all = List.setify (selves @ set_self @ field_types @ return_types @ param_types) in
-    List.setify (List.concat (List.map decompose all))
+	let rec setify = function
+		| [] -> []
+		| x :: xs ->
+			let set = setify xs in
+			if List.mem x set then set else x :: set in
+	
+    let all = setify (selves @ set_self @ field_types @ return_types @ param_types) in
+    setify (List.concat (List.map decompose all))
 
 end
 
@@ -140,8 +144,12 @@ let find_self_parameter (msg: message) =
   | {param_name=x} :: _ -> x
   | _ -> failwith (Printf.sprintf "Failed to determine self parameter for message %s" msg.msg_name)
 
+let endswith suffix x =
+	String.length suffix <= (String.length x)
+	&& (String.sub x (String.length x - (String.length suffix)) (String.length suffix) = suffix)
+
 let plural name =
-  if String.endswith "metrics" name then 
+  if endswith "metrics" name then 
     name ^ " instances"
   else
     name ^ "s"
