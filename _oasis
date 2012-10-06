@@ -15,7 +15,7 @@ Library xen_api_datamodel
   CompiledObject:     best
   Path:               lib
   Findlibname:        xen-api-datamodel
-  Modules:            Datamodel,Dm_api,Datamodel_utils,Datamodel_types,Date
+  Modules:            Datamodel,Dm_api,Datamodel_utils,Datamodel_types,Date,Api_errors,Api_messages,Constants
   BuildDepends:       rpc
 
 Executable docgen

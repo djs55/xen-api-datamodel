@@ -34,6 +34,14 @@ let of_string x = x
 let to_string x = x
 	let iso8601_of_rpc rpc = Date.of_string (Rpc.string_of_rpc rpc)
 	let rpc_of_iso8601 date = Rpc.rpc_of_string (Date.to_string date)
+
+	let never = "19700101T00:00:00Z"
+end
+
+module Ref = struct
+	type t = string
+	let null = "OpaqueRef:NULL"
+	let string_of x = x
 end
 
 (* useful constants for product vsn tracking *)
