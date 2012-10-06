@@ -25,3 +25,11 @@ Executable docgen
   Custom:             true
   Install:            false
   BuildDepends:       rpc, xen-api-datamodel, unix
+
+Executable ocaml
+  CompiledObject:     best
+  Path:               docgen
+  MainIs:             gen_api_main.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       rpc, xen-api-datamodel, unix
