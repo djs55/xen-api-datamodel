@@ -27,7 +27,11 @@
 *)
 
 module Date = struct
-	include Date
+(*	include Date *)
+type iso8601 = string
+
+let of_string x = x
+let to_string x = x
 	let iso8601_of_rpc rpc = Date.of_string (Rpc.string_of_rpc rpc)
 	let rpc_of_iso8601 date = Rpc.rpc_of_string (Date.to_string date)
 end
@@ -249,39 +253,58 @@ let rec type_checks v t =
 
 module TypeToXML = struct
 
-  let string x = Xml.Element(x, [], [])
-  let box tag vs = Xml.Element(tag, [], vs)
+  let string o x =
+	  Xmlm.output o (`El_start (("", x), []));
+	  Xmlm.output o `El_end
 
-  let rec marshal_ = function
-    | String         -> string "string"
-    | Int            -> string "int"
-    | Float          -> string "float"
-    | Bool           -> string "bool"
-    | DateTime       -> string "datetime"
-    | Enum (name, _) -> box "enum" [ string name ]
-    | Ref x          -> box "ref" [ string x ]
-    | Set ty         -> box "set" [ marshal_ ty ]
-    | Map (a, b)     -> box "map" [ marshal_ a; marshal_ b ]
-    | Record x       -> box "record" [ string x ]
+  let box o tag f =
+	  Xmlm.output o (`El_start (("", tag), []));
+	  f ();
+	  Xmlm.output o `El_end
 
-  let marshal = function
-    | None   -> string "none"
-    | Some x -> box "some" [ marshal_ x ]
+  let rec marshal_ o = function
+    | String         -> string o "string"
+    | Int            -> string o "int"
+    | Float          -> string o "float"
+    | Bool           -> string o "bool"
+    | DateTime       -> string o "datetime"
+    | Enum (name, _) -> box o "enum" (fun () -> string o name)
+    | Ref x          -> box o "ref" (fun () -> string o x)
+    | Set ty         -> box o "set" (fun () -> marshal_ o ty)
+    | Map (a, b)     -> box o "map" (fun () -> marshal_ o a; marshal_ o b)
+    | Record x       -> box o "record" (fun () -> string o x)
 
-  let rec unmarshal_ = function
-    | Xml.Element("string", [], [])                    -> String
-    | Xml.Element("int", [], [])                       -> Int
-    | Xml.Element("float", [], [])                     -> Float
-    | Xml.Element("datetime", [], [])                  -> DateTime
-    | Xml.Element("enum", [], [Xml.Element(name, [], [])]) -> Enum(name, [])
-    | Xml.Element("ref", [],  [Xml.Element(name, [], [])]) -> Ref name
-    | Xml.Element("set", [], [t])                      -> Set(unmarshal_ t)
-    | Xml.Element("map", [], [a;b])                    -> Map(unmarshal_ a, unmarshal_ b)
-    | _ -> failwith "Type unmarshal error"
+  let marshal o = function
+    | None   -> string o "none"
+    | Some x -> box o "some" (fun () -> marshal_ x)
 
-  let unmarshal = function
-    | Xml.Element("none", [], [])  -> None
-    | Xml.Element("some", [], [x]) -> Some (unmarshal_ x)
-    | _ -> failwith "Type unmarshal error"
+  let string i f = match Xmlm.input i with
+	  | `El_start (("", x), _) ->
+		  let result = f x in
+		  begin match Xmlm.input i with
+		  | `El_end -> result
+		  | _ -> failwith "Expected El_end"
+		  end
+	  | _ -> failwith "Expected El_start"
 
+  let rec unmarshal_ i = string i (function
+	  | "string"   -> String
+	  | "int"      -> Int
+	  | "float"    -> Float
+	  | "datetime" -> DateTime
+	  | "enum"     -> string i (fun x -> Enum(x, []))
+	  | "ref"      -> string i (fun x -> Ref x)
+	  | "set"      -> Set (unmarshal_ i)
+	  | "map"      ->
+		  let a = unmarshal_ i in
+		  let b = unmarshal_ i in
+		  Map(a, b)
+      | _          -> failwith "Type unmarshal error"
+  )
+
+  let unmarshal i = string i (function
+	  | "none" -> None
+	  | "some" -> Some (unmarshal_ i)
+      | _ -> failwith "Type unmarshal error"
+  )
 end
