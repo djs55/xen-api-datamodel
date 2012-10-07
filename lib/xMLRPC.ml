@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
+(*
 exception RunTimeTypeError of string * Xml.xml
 
 let rtte name xml =
@@ -23,12 +24,16 @@ type xmlrpc = Xml.xml
 let pretty_print = function
 	| Xml.Element(tag,_,_) -> "Element=" ^ String.escaped tag
 	| Xml.PCData d         -> "PCData=" ^ String.escaped d
+*)
+
+type writer = Xmlm.output -> unit
 
 type response =
-  | Success of Xml.xml list (** normal result *)
+  | Success of writer                 (** normal result *)
   | Failure of string * (string list) (** failure/ exception in high-level code *)
-  | Fault of (int32 * string) (** error in the XMLRPC handling *)
-  | Raw of Xml.xml list (** Skipping the status *)
+  | Fault   of (int32 * string)       (** error in the XMLRPC handling *)
+  | Raw     of writer                 (** Skipping the status *)
+
 
 module ToString = struct
   let int64 = Int64.to_string
@@ -42,77 +47,84 @@ module FromString = struct
   let string x = x
 end
 
+let to_string f =
+	let b = Buffer.create 128 in
+	let o = Xmlm.make_output ~indent:(Some 4) (`Buffer b) in
+	Xmlm.output o (`Dtd None);
+	let () = f o in
+	Buffer.contents b
+
 module To = struct
-  let pcdata string = Xml.PCData string
+  let pcdata string o = Xmlm.output o (`Data string)
 
-  let box tag vs = Xml.Element(tag, [], vs)
+  let box tag f o =
+	  Xmlm.output o (`El_start (("", tag), []));
+	  f o;
+	  Xmlm.output o `El_end
 
-  let value v = box "value" [v]
+  let value = box "value"
 
-  let nil () = value (box "nil" [])
+  let nothing o = ()
 
-  let name v = box "name" [pcdata v]
+  let nil = value (box "nil" nothing)
 
-  let array vs = value (box "array" [box "data" vs])
+  let name v = box "name" (pcdata v)
 
-  let boolean b = value (box "boolean" [pcdata (if b then "1" else "0")])
+  let array f = value (box "array" (box "data" f))
 
-  let datetime s = value (box "dateTime.iso8601" [pcdata (Date.to_string s)])
+  let boolean b = value (box "boolean" (pcdata (if b then "1" else "0")))
+
+  let datetime s = value (box "dateTime.iso8601" (pcdata s))
 
   let double x =
     let txt = match classify_float x with
       | FP_nan -> "NaN"
       | FP_infinite -> "NaN"
       | _ -> Printf.sprintf "%0.16g" x in
-    value (box "double" [pcdata txt])
+    value (box "double" (pcdata txt))
 
-  let int n = value (box "i4" [pcdata (Int32.to_string n)])
+  let int n = value (box "i4" (pcdata (Int32.to_string n)))
 
   let methodCall name params =
     box "methodCall"
-      [box "methodName" [pcdata name];
-       box "params" (List.map (fun param -> box "param" [param]) params)]
+      (box "methodName" (pcdata name);
+       box "params" (fun o -> List.iter (fun param -> box "param" param o) params))
 
   let string = function
-      "" -> box "value" []
+      "" -> box "value" nothing
     | string -> value (pcdata string)
 
   let structure fields =
-    value (box "struct" (List.map (fun (k, v) -> box "member" [name k; v]) fields))
+    value (box "struct" (fun o -> List.iter (fun (k, f) -> box "member" (fun o -> name k o; f o) o) fields))
 
   let fault n s =
-    let faultCode = box "member" [name "faultCode"; int n] in
-    let faultString = box "member" [name "faultString"; string s] in
-    box "fault" [box "struct" [faultCode; faultString]]
+    let faultCode = box "member" (fun o -> name "faultCode" o; int n o) in
+    let faultString = box "member" (fun o -> name "faultString" o; string s o) in
+    box "fault" (box "struct" (fun o -> faultCode o; faultString o))
 
-  let success (v: Xml.xml) =
-    structure [ "Status", string "Success";
-		"Value", v ]
+  let success f =
+    structure [
+		"Status", string "Success";
+		"Value", f
+	]
 
   let error code params =
-    let arr = string code :: (List.map string params) in
-    structure [ "Status", string "Failure";
-		"ErrorDescription", (array arr) ]
+    structure [
+		"Status", string "Failure";
+		"ErrorDescription", (array (fun o -> List.iter (fun x -> string x o) (code :: params)));
+	]
 
-  let methodResponse response =
+  let methodResponse response o =
     box "methodResponse"
-      [match response with
-       | Success [] ->
-	   let result = success (string "") in
-	   box "params" [ box "param" [ result ] ]
-       | Success [param] ->
-	   let result = success param in
-	   box "params" [ box "param" [ result ] ]
-       | Failure(code, params) ->
-	   let result = error code params in
-	   box "params" [ box "param" [ result ] ]
-       | Fault(n, s) ->
-	   box "fault" [structure ["faultCode", int n;
-				   "faultString", string s]]
-       | Raw [param] ->
-	   box "params" [ box "param" [param]]
-	   | _ -> failwith "To.methodResponse"
-	  ]
+      (fun o -> match response with
+      | Success f -> box "params" (box "param" (success f)) o
+      | Failure(code, params) -> box "params" (box "param" (error code params)) o
+      | Fault(n, s) ->
+		  box "fault" (structure ["faultCode", int n;
+								  "faultString", string s]) o
+      | Raw f ->
+		  box "params" (box "param" f) o
+	  ) o
 end
 
 module From = struct
