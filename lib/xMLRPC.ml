@@ -130,92 +130,149 @@ end
 module From = struct
   let id x = x
 
-  let pcdata f = function
-    | Xml.PCData string -> f string
-    | xml -> rtte "pcdata" xml
+  let pcdata f o = match Xmlm.input o with
+	  | `Data x -> f x o
+	  | _ -> failwith "pcdata"
 
-  let unbox ok f = function
-    | Xml.Element(s, [], data) when List.mem s ok -> f data
-    | xml -> rtte (Printf.sprintf "unbox: %s should contain '%s'" (pretty_print xml) (List.hd ok)) xml
+  let unbox ok f o = match Xmlm.input o with
+	  | `El_start (("", x), _) when List.mem x ok ->
+		  let result = f o in
+		  begin match Xmlm.input o with
+		  | `El_end -> result
+		  | _ -> failwith "unbox"
+		  end
+	  | _ -> failwith "unbox"
 
-  let singleton ok f xml =
-    unbox ok (function [x] -> f x | y -> rtte (Printf.sprintf "singleton: {%s} should be the singleton {%s}" (String.concat ", " (List.map pretty_print y)) (List.hd ok)) xml) xml
+  let singleton ok f o =
+    unbox ok (fun o ->
+		match Xmlm.input o with
+		| `El_start (("", x), _) ->
+			begin match Xmlm.input o with
+			| `El_end -> f o
+			| _ -> failwith "singleton"
+			end
+		| _ -> failwith "singleton"
+	) o
 
-  let pair ok f1 f2 xml =
-    unbox ok (function [v1; v2] -> f1 v1, f2 v2 | _ -> rtte "pair " xml) xml
+  let pair ok f1 f2 o =
+    unbox ok (fun o ->
+		let a = f1 o in
+		let b = f2 o in
+		a, b
+	) o
 
-  let value f xml = singleton ["value"] f xml
+  let value f o = singleton ["value"] f o
+
+  let pcdata f o = match Xmlm.peek o with
+	  | `Data x ->
+		  ignore(Xmlm.input o);
+		  f x
+	  | `El_end | `El_start _ ->
+		  f ""
+	  | `Dtd _ -> failwith "pcdata"
+
+  let string = singleton ["value" ]
+	  (fun o -> match Xmlm.peek o with
+	  | `Data x -> pcdata id o
+	  | `El_start (("", "string"), []) -> singleton ["string"] (pcdata id) o
+	  | `El_end -> ""
+	  | _ -> failwith "string")
+
+  let rec fold f acc o = match Xmlm.peek o with
+	  | `El_end -> []
+	  | `Dtd _ -> failwith "list"
+	  | _ ->
+		  let next = f acc o in
+		  fold f next o
+
+
+  let rec list f o = match Xmlm.peek o with
+	  | `El_end -> []
+	  | `Dtd _ -> failwith "list"
+	  | _ ->
+		  let first = f o in
+		  first :: (list f o)
 
   (* <name> is only ever used inside a <struct><member>
      CA-20001: it is possible for <name> to be blank *)
-  let name f xml = unbox ["name"]
-    (function
-     | [ Xml.PCData string ] -> f string
-     | [ ] ->
-	 f ""
-	 | x -> rtte "From.name: should contain PCData" xml
-    ) xml
+  let name f o = unbox ["name"] (fun o -> pcdata f o) o
 
-  let check expected xml got =
-    if got <> expected then rtte ("check " ^ expected) xml
+  let check expected got =
+    if got <> expected then failwith (Printf.sprintf "expected %s got %s" expected got)
 
-  let nil = value (unbox ["nil"] (fun _ -> ()))
+  let nothing o = ()
 
-  let array f = value (singleton ["array"] (unbox ["data"] (List.map f)))
+  let nil = value (unbox ["nil"] nothing)
 
-  let boolean = value (singleton ["boolean"] ((<>) (Xml.PCData "0")))
+  let array f = value (singleton ["array"] (unbox ["data"] f))
 
-  let datetime x = Date.of_string (value (singleton ["dateTime.iso8601"] (pcdata id)) x)
+  let boolean = value (singleton ["boolean"] (fun o -> pcdata ((<>) "0") o))
+
+  let datetime x = value (singleton ["dateTime.iso8601"] (pcdata id)) x
 
   let double = value (singleton ["double"] (pcdata float_of_string))
 
   let int = value (singleton ["i4"; "int"] (pcdata Int32.of_string))
 
-  let methodCall xml =
-    pair ["methodCall"]
-      (singleton ["methodName"] (pcdata id))
-      (unbox ["params"] (List.map (singleton ["param"] id)))
-    xml
+  let methodCall f o =
+	  pair ["methodCall"]
+		  (singleton ["methodName"] (pcdata id))
+		  (unbox ["params"] (list (singleton ["param"] f)))
+		  o
 
-  let string = function
-    | Xml.Element("value", [], [Xml.PCData s])                  -> s
-    | Xml.Element("value", [], [Xml.Element("string", [], [])])
-    | Xml.Element("value", [], [])                              -> ""
-    | xml                                                       -> value (singleton ["string"] (pcdata id)) xml
+  let structure f o =
+	  singleton ["value"]
+		  (unbox ["struct"]
+			   (list
+					(unbox ["member"]
+						 (fun o ->
+							 let key = name id o in
+							 f key o
+						 )
+					)
+			   )
+		  ) o
 
-  let structure : Xml.xml -> (string * Xml.xml) list =
-    singleton ["value"] (unbox ["struct"] (List.map (pair ["member"] (name id) id)))
+  let status f o =
+	  singleton ["value"]
+		  (unbox ["struct"]
+			   (fun o ->
+				   unbox ["member"]
+					   (fun o ->
+						   let key = name id o in
+						   if key <> "Status" then failwith "Status";
+						   ignore(string o)
+					   ) o;
+				   unbox ["member"]
+					   (fun o ->
+						   match name id o with
+						   | "Value" ->
+							   f o
+						   | "ErrorDescription" ->
+							   let code = string o in
+							   let params = list string o in
+							   failwith (String.concat ", " (code :: params))
+					   ) o
+			   )
+		  ) o
 
-  let success =
-    unbox ["params"] (List.map (singleton ["param"] id))
-
-  let status xml =
-    let bindings = structure xml in
-    try match string (List.assoc "Status" bindings) with
-    | "Success" -> Success [ List.assoc "Value" bindings ]
-    | "Failure" -> begin
-	match array id (List.assoc "ErrorDescription" bindings) with
-	| [] -> rtte "Empty array of error strings" (Xml.PCData "")
-	| code::strings ->
-	    Failure (string code, List.map string strings)
-      end
-    | _ -> raise Not_found
-    with Not_found -> rtte "Status" xml
-
-  let fault f =
-    let aux m =
-      int (List.assoc "faultCode" m), string (List.assoc "faultString" m) in
-    singleton ["fault"] (fun xml -> aux (structure xml))
-
-  let methodResponse xml =
-    singleton ["methodResponse"]
-      (function
-       | Xml.Element("params", _, _) as xml -> begin match success xml with
-       | [ xml ] -> status xml
-       | _ -> rtte "Expected single return value (struct status)" xml
-	 end
-       | Xml.Element("fault", _, _) as xml ->
-	   Fault (fault id xml)
-       | xml -> rtte "response" xml)
-   xml
+  let methodResponse f o =
+	  singleton ["methodResponse"]
+		  (fun o ->
+			  match Xmlm.peek o with
+			  | `El_start (("", "params"), _) ->
+				  unbox ["params"] (status f) o
+			  | `El_start (("", "fault"), _) ->
+				  unbox ["fault"]
+					  (structure
+						   (fun key o -> match key with
+						   | "faultCode" ->
+							   ignore(int o)
+						   | "faultString" ->
+							   ignore(string o)
+						   )
+					  ) o;
+				  failwith "fault"
+			  | _ -> failwith "fault"
+		  ) o
 end
