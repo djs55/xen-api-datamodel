@@ -23,7 +23,7 @@ let to_string v =
   | VEnum e -> e
   | _ -> raise Map_key_that_cannot_be_represented_as_string      
       
-let rec to_xml v =
+let rec to_xml v : XMLRPC.writer =
   match v with
     VString s -> XMLRPC.To.string s
   | VInt i -> XMLRPC.To.string (Int64.to_string i)
@@ -32,6 +32,6 @@ let rec to_xml v =
   | VDateTime d -> XMLRPC.To.datetime d
   | VEnum e -> XMLRPC.To.string e
   | VMap vvl -> XMLRPC.To.structure (List.map (fun (v1,v2)-> to_string v1, to_xml v2) vvl)
-  | VSet vl -> XMLRPC.To.array (List.map (fun v->to_xml v) vl)
+  | VSet vl -> XMLRPC.To.array (fun o -> List.iter (fun v->to_xml v o) vl)
   | VRef r -> XMLRPC.To.string r
-      
+

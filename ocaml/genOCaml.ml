@@ -153,7 +153,7 @@ let ty_of_xmlrpc api ty =
 			  | Some default ->
 			      Printf.sprintf "(if (List.mem_assoc \"%s\" all) then (my_assoc \"%s\" all) else %s)"
 				field_name field_name
-				("Xml.parse_string (\""^(Xml.to_string (Datamodel_values.to_xml default))^"\")")			  
+				("Xml.parse_string (\""^(XMLRPC.to_string (Datamodel_values.to_xml default))^"\")")			  
 			))
 	    fields in
 	let fields = if fields = [] then [ "__unused=()" ] else fields in
